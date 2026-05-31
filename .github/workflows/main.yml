@@ -1,8 +1,9 @@
 name: Build Emergent Mobile App (APK)
 
-# This environment variable fixes the Node.js 20 warning
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  # Limit Node.js to 4GB of RAM so it doesn't crash the server
+  NODE_OPTIONS: "--max-old-space-size=4096"
 
 on:
   workflow_dispatch:
@@ -29,17 +30,22 @@ jobs:
         run: npm install --legacy-peer-deps
 
       - name: Generate Android folder (Expo Prebuild)
-        # Added --clean to ensure a fresh, uncorrupted generation
         run: |
           npx expo prebuild --platform android --clean
 
+      - name: Restrict Gradle Memory Usage
+        # This prevents the exit code 254 memory crash by capping RAM and disabling parallel builds
+        run: |
+          echo "org.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=512m" >> android/gradle.properties
+          echo "org.gradle.daemon=false" >> android/gradle.properties
+          echo "org.gradle.parallel=false" >> android/gradle.properties
+
       - name: Build Android APK
-        # Added --no-daemon to prevent the Exit Code 254 Memory Crash
         run: |
           cd android
           chmod +x ./gradlew
-          ./gradlew assembleRelease --no-daemon
-
+          ./gradlew assembleRelease
+          
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
