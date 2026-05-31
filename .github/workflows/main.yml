@@ -1,7 +1,11 @@
 name: Build Emergent Mobile App (APK)
 
+# This environment variable fixes the Node.js 20 warning
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
-  workflow_dispatch: # Allows you to trigger the build manually in GitHub
+  workflow_dispatch:
 
 jobs:
   build:
@@ -22,20 +26,19 @@ jobs:
           java-version: '17'
 
       - name: Install dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - name: Generate Android folder (Expo Prebuild)
-        # Emergent apps often hide the native code. This step forces it to generate.
+        # Added --clean to ensure a fresh, uncorrupted generation
         run: |
-          if [ ! -d "android" ]; then
-            npx expo prebuild --platform android
-          fi
+          npx expo prebuild --platform android --clean
 
       - name: Build Android APK
+        # Added --no-daemon to prevent the Exit Code 254 Memory Crash
         run: |
           cd android
           chmod +x ./gradlew
-          ./gradlew assembleRelease
+          ./gradlew assembleRelease --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
