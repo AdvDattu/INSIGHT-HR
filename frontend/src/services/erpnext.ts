@@ -94,26 +94,41 @@ function encodeFields(fields: string[]): string {
 export const ERPNext = {
   // Validate credentials by fetching the user record.
   // ERPNext returns `{ message: "user@example.com" }` for this endpoint.
+  // IMPORTANT: Frappe silently falls back to the "Guest" user (HTTP 200) when
+  // the API key/secret pair is invalid instead of returning 401. We have to
+  // detect that case explicitly.
   async validateCredentials(creds: ERPNextCredentials): Promise<string> {
     const data = await request<{ message: unknown }>(
       creds,
       "/api/method/frappe.auth.get_logged_user",
     );
     const message = (data as any)?.message;
+    let resolvedUser: string | null = null;
     if (typeof message === "string" && message.length > 0) {
-      return message;
-    }
-    // Some forks/versions may return an object with an email field
-    if (message && typeof message === "object") {
+      resolvedUser = message;
+    } else if (message && typeof message === "object") {
       const candidate =
         (message as any).email ||
         (message as any).user_id ||
         (message as any).name;
       if (typeof candidate === "string" && candidate.length > 0) {
-        return candidate;
+        resolvedUser = candidate;
       }
     }
-    throw new ERPNextApiError("Unable to determine logged-in user", 401);
+    if (!resolvedUser) {
+      throw new ERPNextApiError("Unable to determine logged-in user", 401);
+    }
+    // Treat "Guest" as authentication failure — Frappe returns this when the
+    // token is unrecognized rather than emitting a 401.
+    if (resolvedUser.toLowerCase() === "guest") {
+      throw new ERPNextApiError(
+        "ERPNext did not recognize your API Key/Secret (it returned the Guest user). " +
+          "Open your ERPNext User → API Access page and regenerate the keys, " +
+          "then paste the new values exactly (no spaces). Note: the API Secret is shown only once at generation time.",
+        401,
+      );
+    }
+    return resolvedUser;
   },
 
   // Fetch the active employee record using user_id (email)
