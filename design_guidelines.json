@@ -1,0 +1,129 @@
+{
+  "theme": "LIGHT",
+  "archetype": "4 (Swiss & High-Contrast)",
+  "concept": "Corporate professional mobile-first web app, mimicking native React Native/Expo constraints. Uses a clean, card-based layout with deep contrast and minimalist geometry. Generous safe-area padding and thumb-friendly touch targets. Uses the 'Bento' and 'Control Room' grid approaches for widget dashboards.",
+  "colors": {
+    "background": "#F9FAFB",
+    "surface": "#FFFFFF",
+    "text_primary": "#0A0A0A",
+    "text_secondary": "#52525B",
+    "primary": "#000000",
+    "primary_foreground": "#FFFFFF",
+    "border": "#E4E4E7",
+    "accent_success": "#22C55E",
+    "accent_warning": "#F59E0B",
+    "accent_destructive": "#EF4444",
+    "navigation_bg": "#FFFFFF"
+  },
+  "typography": {
+    "font_family_headings": "Outfit, sans-serif",
+    "font_family_body": "IBM Plex Sans, sans-serif",
+    "h1": "text-3xl font-bold tracking-tight text-gray-900",
+    "h2": "text-2xl font-semibold tracking-tight text-gray-900",
+    "h3": "text-lg font-medium tracking-tight text-gray-900",
+    "body": "text-base leading-relaxed text-gray-600",
+    "small": "text-sm text-gray-500",
+    "label": "text-xs font-semibold tracking-widest uppercase text-gray-500"
+  },
+  "layout_and_spacing": {
+    "app_container": "max-w-md mx-auto min-h-screen bg-gray-50 relative pb-20 overflow-x-hidden shadow-2xl",
+    "section_padding": "p-4 sm:p-6",
+    "card_spacing": "space-y-4",
+    "touch_targets": "min-h-[48px] min-w-[48px] flex items-center justify-center",
+    "border_radius": "rounded-2xl for main cards, rounded-xl for inner elements, rounded-full for buttons"
+  },
+  "components_strategy": {
+    "cards": "Flat solid surfaces with 1px delicate border (`border-gray-200`), no drop shadows to maintain a clean Swiss look. `bg-white p-5 rounded-2xl`.",
+    "buttons": "Primary: Solid black (`bg-black text-white rounded-full font-medium active:scale-95 transition-transform`). Secondary: Outline (`border border-gray-200 bg-white text-black rounded-full active:scale-95 transition-transform`).",
+    "bottom_navigation": "Fixed bottom bar (`fixed bottom-0 w-full max-w-md bg-white/90 backdrop-blur-xl border-t border-gray-100 pb-safe pt-2 px-6 flex justify-between items-center z-50`).",
+    "inputs": "Clean, large touch targets. Shadcn `Input` with `h-12 rounded-xl border-gray-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-black/5`.",
+    "tabs": "Pill-shaped segmented controls. Active state: `bg-black text-white`. Inactive state: `text-gray-500 hover:text-black`.",
+    "modals_bottom_sheets": "Use bottom-aligned Drawer/Dialog for detail views (e.g., Payslip details, Apply Leave). Must animate sliding up."
+  },
+  "icons": {
+    "library": "lucide-react",
+    "stroke_width": "2",
+    "size_default": "24",
+    "instructions": "Use consistent stroke width. For bottom nav: filled icon for active state (or strong black stroke), gray stroke for inactive."
+  },
+  "pages": {
+    "login": {
+      "layout": "Full height, centered content, immersive background.",
+      "visuals": "Abstract minimalist architecture background for corporate vibe.",
+      "components": "Form container (`bg-white/95 backdrop-blur-xl rounded-3xl p-6 shadow-2xl`), Inputs for ERPNext URL, API Key, API Secret, massive Login CTA."
+    },
+    "dashboard": {
+      "layout": "Scrollable stack with top header.",
+      "components": [
+        "Header: Greeting ('Good Morning, Jane') + User Avatar.",
+        "Hero Card (Attendance): Large live clock, current status badge (e.g. 'Checked In' in green), massive 'Check Out' action button.",
+        "Quick Stats Grid: Bento-style 2-column grid for 'Leaves Available' and 'Next Holiday'.",
+        "Recent Activity: Simple list of recent punches."
+      ]
+    },
+    "leave_management": {
+      "layout": "Sticky top tabs (Balance, Apply, History).",
+      "components": [
+        "Balance Tab: Bento grid of circular progress rings or clean metric cards for Casual, Sick, Earned leaves.",
+        "Apply Tab: Form with full-width bottom CTA.",
+        "History Tab: List of cards with status pills (Approved=Green, Pending=Yellow, Rejected=Red)."
+      ]
+    },
+    "payslips": {
+      "layout": "List view.",
+      "components": [
+        "List item: Month/Year, Net Pay (prominent), 'View Details' chevron.",
+        "Detail Sheet: Bottom sheet/modal containing Earnings/Deductions breakdown in a strict 2-column key-value list."
+      ]
+    },
+    "profile": {
+      "layout": "Hero avatar + Settings list.",
+      "components": [
+        "Header: Large Avatar, Name, Role, Employee ID.",
+        "List: Personal details, Company Details, Settings.",
+        "Logout: Prominent destructive button at the bottom."
+      ]
+    }
+  },
+  "media": {
+    "image_urls": [
+      {
+        "url": "https://images.unsplash.com/photo-1611570885483-095b1b449aa3?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTV8MHwxfHNlYXJjaHwxfHxtaW5pbWFsaXN0JTIwZ2VvbWV0cmljJTIwYXJjaGl0ZWN0dXJlJTIwYmFja2dyb3VuZHxlbnwwfHx8fDE3ODAyMTMzMzN8MA&ixlib=rb-4.1.0&q=85",
+        "category": "background",
+        "description": "Minimalist geometric architecture for login screen background"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA2MDV8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBjb3Jwb3JhdGUlMjBhdmF0YXIlMjBwb3J0cmFpdHxlbnwwfHx8fDE3ODAyMTMzMzJ8MA&ixlib=rb-4.1.0&q=85",
+        "category": "avatar",
+        "description": "Professional female avatar for profile and dashboard header"
+      }
+    ]
+  },
+  "testing": {
+    "attributes": [
+      "data-testid='login-submit-button'",
+      "data-testid='erpnext-url-input'",
+      "data-testid='api-key-input'",
+      "data-testid='api-secret-input'",
+      "data-testid='check-in-out-button'",
+      "data-testid='leave-apply-submit'",
+      "data-testid='payslip-item'",
+      "data-testid='logout-button'",
+      "data-testid='nav-dashboard'",
+      "data-testid='nav-leaves'",
+      "data-testid='nav-payslips'",
+      "data-testid='nav-profile'"
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Design specifically for a mobile layout using `max-w-md mx-auto min-h-screen relative overflow-x-hidden`. This must feel like a native mobile app inside a web browser.",
+    "Avoid using complex Shadcn components that rely on desktop behaviors (like Select dropdowns that don't look native on mobile). Use bottom-sheet Dialogs/Drawers for selectors where possible.",
+    "Implement bottom navigation fixed to the bottom. Add padding to the bottom of the main content area (`pb-24`) so it's not obscured by the nav bar.",
+    "Strictly adhere to the selected fonts (Outfit & IBM Plex Sans). Import them from Google Fonts in `index.css`.",
+    "Add hover/active states that mimic native touch feedback (e.g., `active:scale-95 transition-transform`).",
+    "Make all touch targets at least 48x48px.",
+    "Do NOT use pure #000000 or #FFFFFF for backgrounds if they touch. Use #F9FAFB for app background and #FFFFFF for cards.",
+    "Use data-testid exactly as specified for all interactive elements to support tests.",
+    "Since it's a mobile layout, DO NOT use Sidebar. DO NOT use desktop top-navs. Use only Bottom Navigation."
+  ]
+}
