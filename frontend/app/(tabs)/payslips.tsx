@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopLeftRadius: radius.xxl,
     borderTopRightRadius: radius.xxl,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: 12, // Minimized padding to maximize width
     paddingTop: 12,
     maxHeight: "85%",
   },
@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sheetTitle: {
-    fontSize: 20,
+    fontSize: 18, // Reduced font size slightly
     fontWeight: "800",
     color: colors.textPrimary,
     letterSpacing: -0.3,
@@ -415,7 +415,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     backgroundColor: colors.inputBg,
     borderRadius: radius.lg,
-    padding: 14,
+    padding: 10, // Minimized inner padding
     marginBottom: spacing.base,
   },
   summaryItem: {
@@ -430,7 +430,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   summaryValue: {
-    fontSize: 14,
+    fontSize: 13, // Reduced to prevent cramping
     fontWeight: "700",
     color: colors.textPrimary,
   },
@@ -451,34 +451,34 @@ const styles = StyleSheet.create({
   lineItem: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 10,
+    paddingVertical: 6, // Tighter vertical padding
     borderBottomColor: colors.borderLight,
     borderBottomWidth: 1,
   },
   lineLabel: {
-    fontSize: 14,
+    fontSize: 12, // Reduced text size
     color: colors.textPrimary,
     flex: 1,
     marginRight: 12,
   },
   lineValue: {
-    fontSize: 14,
+    fontSize: 12, // Reduced text size
     fontWeight: "600",
     color: colors.textPrimary,
   },
   totalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 10,
+    paddingVertical: 8,
     marginTop: 4,
   },
   totalLabel: {
-    fontSize: 13,
+    fontSize: 12, // Reduced font size
     fontWeight: "700",
     color: colors.textSecondary,
   },
   totalValue: {
-    fontSize: 14,
+    fontSize: 13, // Reduced font size
     fontWeight: "800",
     color: colors.textPrimary,
   },
