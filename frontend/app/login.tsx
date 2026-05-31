@@ -5,6 +5,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
@@ -15,6 +16,7 @@ import { useAuth } from "@/src/store/auth";
 import { useToast } from "@/src/components/Toast";
 import { ERPNext, ERPNextApiError } from "@/src/services/erpnext";
 import { colors, radius, spacing } from "@/src/theme/colors";
+import { AuthMode, ERPNextCredentials } from "@/src/types/erpnext";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -22,25 +24,51 @@ export default function LoginScreen() {
   const { signIn } = useAuth();
   const toast = useToast();
 
+  const [mode, setMode] = useState<AuthMode>("token");
+
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
+  const [usr, setUsr] = useState("");
+  const [pwd, setPwd] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const onSubmit = async () => {
     setError(null);
-    if (!baseUrl.trim() || !apiKey.trim() || !apiSecret.trim()) {
-      setError("All fields are required");
+    if (!baseUrl.trim()) {
+      setError("ERPNext URL is required");
       return;
     }
+    if (mode === "token") {
+      if (!apiKey.trim() || !apiSecret.trim()) {
+        setError("API Key and API Secret are required");
+        return;
+      }
+    } else {
+      if (!usr.trim() || !pwd) {
+        setError("Email and password are required");
+        return;
+      }
+    }
+
     setLoading(true);
     try {
-      const creds = {
-        baseUrl: baseUrl.trim(),
-        apiKey: apiKey.trim(),
-        apiSecret: apiSecret.trim(),
-      };
+      const creds: ERPNextCredentials =
+        mode === "token"
+          ? {
+              baseUrl: baseUrl.trim(),
+              authMode: "token",
+              apiKey: apiKey.trim(),
+              apiSecret: apiSecret.trim(),
+            }
+          : {
+              baseUrl: baseUrl.trim(),
+              authMode: "password",
+              usr: usr.trim(),
+              pwd,
+            };
 
       // Validate credentials & get logged-in user email
       const userEmail = await ERPNext.validateCredentials(creds);
@@ -63,13 +91,14 @@ export default function LoginScreen() {
       let msg: string;
       if (e instanceof ERPNextApiError) {
         if (e.status === 401 || e.status === 403) {
-          // Show the underlying ERPNext message so the user can actually
-          // debug — generic "invalid key" hides the real cause.
           const detail =
             e.message && e.message !== "Request failed"
               ? `\n\nServer said: ${e.message.slice(0, 240)}`
               : "";
-          msg = `Authentication rejected by ERPNext (HTTP ${e.status}).${detail}\n\nCheck the API Key & Secret in your ERPNext User → API Access page (re-generate keys if unsure).`;
+          msg =
+            mode === "token"
+              ? `Authentication rejected by ERPNext (HTTP ${e.status}).${detail}\n\nCheck the API Key & Secret in your ERPNext User → API Access page (re-generate keys if unsure).`
+              : `Incorrect email or password (HTTP ${e.status}).${detail}`;
         } else if (e.status === 404) {
           msg = `Endpoint not found at ${baseUrl.trim()}. Make sure the URL points to your ERPNext root (e.g. https://erp.yourcompany.com) and does not include any path.`;
         } else {
@@ -105,8 +134,55 @@ export default function LoginScreen() {
 
         <Text style={styles.title}>Sign in to your{"\n"}workspace</Text>
         <Text style={styles.subtitle}>
-          Connect to your ERPNext instance using your API credentials.
+          Connect to your ERPNext instance with either API credentials or your
+          email & password.
         </Text>
+
+        {/* Mode toggle */}
+        <View style={styles.modeToggle}>
+          <TouchableOpacity
+            testID="mode-token"
+            style={[
+              styles.modeBtn,
+              mode === "token" && styles.modeBtnActive,
+            ]}
+            onPress={() => {
+              setMode("token");
+              setError(null);
+            }}
+            activeOpacity={0.85}
+          >
+            <Text
+              style={[
+                styles.modeLabel,
+                mode === "token" && styles.modeLabelActive,
+              ]}
+            >
+              API Token
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            testID="mode-password"
+            style={[
+              styles.modeBtn,
+              mode === "password" && styles.modeBtnActive,
+            ]}
+            onPress={() => {
+              setMode("password");
+              setError(null);
+            }}
+            activeOpacity={0.85}
+          >
+            <Text
+              style={[
+                styles.modeLabel,
+                mode === "password" && styles.modeLabelActive,
+              ]}
+            >
+              Email & Password
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.form}>
           <Input
@@ -119,25 +195,53 @@ export default function LoginScreen() {
             value={baseUrl}
             onChangeText={setBaseUrl}
           />
-          <Input
-            testID="api-key-input"
-            label="API Key"
-            placeholder="Your ERPNext API Key"
-            autoCapitalize="none"
-            autoCorrect={false}
-            value={apiKey}
-            onChangeText={setApiKey}
-          />
-          <Input
-            testID="api-secret-input"
-            label="API Secret"
-            placeholder="Your ERPNext API Secret"
-            autoCapitalize="none"
-            autoCorrect={false}
-            secureTextEntry
-            value={apiSecret}
-            onChangeText={setApiSecret}
-          />
+
+          {mode === "token" ? (
+            <>
+              <Input
+                testID="api-key-input"
+                label="API Key"
+                placeholder="Your ERPNext API Key"
+                autoCapitalize="none"
+                autoCorrect={false}
+                value={apiKey}
+                onChangeText={setApiKey}
+              />
+              <Input
+                testID="api-secret-input"
+                label="API Secret"
+                placeholder="Your ERPNext API Secret"
+                autoCapitalize="none"
+                autoCorrect={false}
+                secureTextEntry
+                value={apiSecret}
+                onChangeText={setApiSecret}
+              />
+            </>
+          ) : (
+            <>
+              <Input
+                testID="email-input"
+                label="Email"
+                placeholder="you@company.com"
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                value={usr}
+                onChangeText={setUsr}
+              />
+              <Input
+                testID="password-input"
+                label="Password"
+                placeholder="Your ERPNext password"
+                autoCapitalize="none"
+                autoCorrect={false}
+                secureTextEntry
+                value={pwd}
+                onChangeText={setPwd}
+              />
+            </>
+          )}
 
           {error ? (
             <View style={styles.errorBox} testID="login-error">
@@ -156,11 +260,27 @@ export default function LoginScreen() {
         </View>
 
         <View style={styles.helpBox}>
-          <Text style={styles.helpLabel}>How to get your credentials</Text>
+          <Text style={styles.helpLabel}>
+            {mode === "token"
+              ? "How to get your API credentials"
+              : "About email & password login"}
+          </Text>
           <Text style={styles.helpText}>
-            In ERPNext, go to your User profile → API Access → click{" "}
-            <Text style={{ fontWeight: "700" }}>Generate Keys</Text>. Copy the
-            API Key and API Secret shown.
+            {mode === "token" ? (
+              <>
+                In ERPNext, go to your User profile → API Access → click{" "}
+                <Text style={{ fontWeight: "700" }}>Generate Keys</Text>. Copy
+                the API Key and API Secret shown. The Secret is shown only
+                once.
+              </>
+            ) : (
+              <>
+                Use the same email and password you use to log into ERPNext.
+                Your credentials are stored securely on this device only and
+                sent to your ERPNext instance via HTTPS Basic Auth on each
+                request.
+              </>
+            )}
           </Text>
         </View>
       </ScrollView>
@@ -209,8 +329,32 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 15,
     color: colors.textSecondary,
-    marginBottom: spacing.xxl,
+    marginBottom: spacing.lg,
     lineHeight: 22,
+  },
+  modeToggle: {
+    flexDirection: "row",
+    backgroundColor: colors.inputBg,
+    padding: 4,
+    borderRadius: radius.full,
+    marginBottom: spacing.lg,
+  },
+  modeBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: "center",
+    borderRadius: radius.full,
+  },
+  modeBtnActive: {
+    backgroundColor: colors.primary,
+  },
+  modeLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.textSecondary,
+  },
+  modeLabelActive: {
+    color: colors.primaryForeground,
   },
   form: {
     marginBottom: spacing.xl,

@@ -22,11 +22,51 @@ function buildHeaders(creds: ERPNextCredentials): Record<string, string> {
   // Note: we deliberately avoid custom X-* headers here. Adding non-standard
   // headers (like X-Frappe-Site-Name) triggers a CORS preflight that many
   // ERPNext deployments don't whitelist, blocking the request entirely.
-  return {
-    Authorization: `token ${creds.apiKey}:${creds.apiSecret}`,
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Accept: "application/json",
   };
+  if (creds.authMode === "token") {
+    headers.Authorization = `token ${creds.apiKey}:${creds.apiSecret}`;
+  } else {
+    // Basic auth — Frappe supports decoding base64(usr:pwd).
+    // btoa handles ASCII; we make it utf-8 safe with encodeURIComponent.
+    const raw = `${creds.usr}:${creds.pwd}`;
+    let encoded = "";
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      encoded = (globalThis as any).btoa(unescape(encodeURIComponent(raw)));
+    } catch {
+      // Fallback for environments without btoa (older RN)
+      encoded = bufferLikeBase64(raw);
+    }
+    headers.Authorization = `Basic ${encoded}`;
+  }
+  return headers;
+}
+
+// Minimal base64 fallback for environments without btoa
+function bufferLikeBase64(input: string): string {
+  const chars =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  let bytes = "";
+  for (let i = 0; i < input.length; i++) {
+    bytes += String.fromCharCode(input.charCodeAt(i) & 0xff);
+  }
+  let out = "";
+  let i = 0;
+  while (i < bytes.length) {
+    const c1 = bytes.charCodeAt(i++);
+    const c2 = i < bytes.length ? bytes.charCodeAt(i++) : NaN;
+    const c3 = i < bytes.length ? bytes.charCodeAt(i++) : NaN;
+    out += chars.charAt(c1 >> 2);
+    out += chars.charAt(((c1 & 3) << 4) | ((isNaN(c2) ? 0 : c2) >> 4));
+    out += isNaN(c2)
+      ? "="
+      : chars.charAt(((c2 & 15) << 2) | ((isNaN(c3) ? 0 : c3) >> 6));
+    out += isNaN(c3) ? "=" : chars.charAt(c3 & 63);
+  }
+  return out;
 }
 
 async function request<T>(

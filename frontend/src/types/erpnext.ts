@@ -1,7 +1,14 @@
+export type AuthMode = "token" | "password";
+
 export interface ERPNextCredentials {
   baseUrl: string;
-  apiKey: string;
-  apiSecret: string;
+  authMode: AuthMode;
+  // Token mode
+  apiKey?: string;
+  apiSecret?: string;
+  // Password mode
+  usr?: string;
+  pwd?: string;
 }
 
 export interface Employee {
