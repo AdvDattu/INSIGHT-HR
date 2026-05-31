@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   RefreshControl,
@@ -137,8 +138,7 @@ export default function LeaveScreen() {
     setRefreshing(false);
   };
 
-  const onSubmit = async () => {
-    if (!credentials || !employee) return;
+  const confirmSubmit = () => {
     setFormError(null);
     if (!formType) {
       setFormError("Please select a leave type");
@@ -152,6 +152,19 @@ export default function LeaveScreen() {
       setFormError("From date cannot be after To date");
       return;
     }
+
+    Alert.alert(
+      "Confirm Application",
+      `Are you sure you want to apply for ${formType} from ${formFrom} to ${formTo}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Yes, Apply", onPress: onSubmit },
+      ]
+    );
+  };
+
+  const onSubmit = async () => {
+    if (!credentials || !employee) return;
     setSubmitting(true);
     try {
       await ERPNext.applyLeave(credentials, {
@@ -346,7 +359,7 @@ export default function LeaveScreen() {
                   <Button
                     testID="leave-apply-submit"
                     label="Submit Application"
-                    onPress={onSubmit}
+                    onPress={confirmSubmit}
                     loading={submitting}
                     size="lg"
                     fullWidth
