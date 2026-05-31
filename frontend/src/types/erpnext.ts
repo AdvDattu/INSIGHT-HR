@@ -9,6 +9,7 @@ export interface ERPNextCredentials {
   // Password mode
   usr?: string;
   pwd?: string;
+  sid?: string; // session id captured after /api/method/login
 }
 
 export interface Employee {

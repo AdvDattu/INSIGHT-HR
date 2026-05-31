@@ -1,4 +1,8 @@
+import { Platform } from "react-native";
+
 import { ERPNextCredentials, Employee } from "@/src/types/erpnext";
+
+const APP_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
 
 export class ERPNextApiError extends Error {
   status: number;
@@ -28,45 +32,125 @@ function buildHeaders(creds: ERPNextCredentials): Record<string, string> {
   };
   if (creds.authMode === "token") {
     headers.Authorization = `token ${creds.apiKey}:${creds.apiSecret}`;
-  } else {
-    // Basic auth — Frappe supports decoding base64(usr:pwd).
-    // btoa handles ASCII; we make it utf-8 safe with encodeURIComponent.
-    const raw = `${creds.usr}:${creds.pwd}`;
-    let encoded = "";
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      encoded = (globalThis as any).btoa(unescape(encodeURIComponent(raw)));
-    } catch {
-      // Fallback for environments without btoa (older RN)
-      encoded = bufferLikeBase64(raw);
-    }
-    headers.Authorization = `Basic ${encoded}`;
+  } else if (creds.sid && Platform.OS !== "web") {
+    // On native (iOS / Android / Expo Go) we can set the Cookie header
+    // directly. Browsers forbid setting `Cookie` from JS — there we rely on
+    // the backend proxy.
+    headers.Cookie = `sid=${creds.sid}`;
   }
   return headers;
 }
 
-// Minimal base64 fallback for environments without btoa
-function bufferLikeBase64(input: string): string {
-  const chars =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  let bytes = "";
-  for (let i = 0; i < input.length; i++) {
-    bytes += String.fromCharCode(input.charCodeAt(i) & 0xff);
+async function rawFetch(
+  creds: ERPNextCredentials,
+  path: string,
+  init: RequestInit = {},
+): Promise<Response> {
+  const baseUrl = normalizeBaseUrl(creds.baseUrl);
+  const url = `${baseUrl}${path}`;
+  return fetch(url, {
+    ...init,
+    // 'include' lets the browser cookie jar carry the sid captured on
+    // /api/method/login across subsequent requests. On native it's a no-op.
+    credentials: "include",
+    headers: {
+      ...buildHeaders(creds),
+      ...(init.headers || {}),
+    },
+  });
+}
+
+// Password-mode requests on the web preview cannot capture or send the
+// session cookie due to browser security (Set-Cookie is hidden from JS, and
+// the `Cookie` header is a forbidden header for fetch). For that case we
+// route the request through our own backend, which calls ERPNext server-side
+// and returns the response. The backend will also lazily re-login if the
+// sid expires, transparently to the caller.
+async function proxyRequest<T>(
+  creds: ERPNextCredentials,
+  path: string,
+  init: RequestInit = {},
+): Promise<T> {
+  if (!APP_BACKEND_URL) {
+    throw new ERPNextApiError(
+      "App backend URL is not configured. Cannot route password-mode requests on web.",
+      0,
+    );
   }
-  let out = "";
-  let i = 0;
-  while (i < bytes.length) {
-    const c1 = bytes.charCodeAt(i++);
-    const c2 = i < bytes.length ? bytes.charCodeAt(i++) : NaN;
-    const c3 = i < bytes.length ? bytes.charCodeAt(i++) : NaN;
-    out += chars.charAt(c1 >> 2);
-    out += chars.charAt(((c1 & 3) << 4) | ((isNaN(c2) ? 0 : c2) >> 4));
-    out += isNaN(c2)
-      ? "="
-      : chars.charAt(((c2 & 15) << 2) | ((isNaN(c3) ? 0 : c3) >> 6));
-    out += isNaN(c3) ? "=" : chars.charAt(c3 & 63);
+  let parsedBody: any = undefined;
+  if (init.body && typeof init.body === "string") {
+    try {
+      parsedBody = JSON.parse(init.body);
+    } catch {
+      parsedBody = init.body;
+    }
   }
-  return out;
+  let res: Response;
+  try {
+    res = await fetch(`${APP_BACKEND_URL}/api/erpnext/call`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        base_url: creds.baseUrl,
+        method: (init.method || "GET").toUpperCase(),
+        path,
+        body: parsedBody,
+        sid: creds.sid || null,
+        usr: creds.usr || null,
+        pwd: creds.pwd || null,
+      }),
+    });
+  } catch {
+    throw new ERPNextApiError(
+      "Could not reach the app backend. Please check your network.",
+      0,
+    );
+  }
+  const text = await res.text();
+  let payload: any = {};
+  try {
+    payload = JSON.parse(text);
+  } catch {
+    // ignore
+  }
+  if (!res.ok) {
+    // FastAPI surfaces HTTPException as { detail: "..." }
+    const msg =
+      payload?.detail || payload?.message || text || `Proxy error (${res.status})`;
+    throw new ERPNextApiError(
+      typeof msg === "string" ? msg : "Proxy request failed",
+      res.status,
+      text,
+    );
+  }
+  // payload shape: { status: number, body: any, sid: string|null }
+  const upstreamStatus: number = payload?.status ?? 0;
+  const upstreamBody = payload?.body;
+  // Persist refreshed sid back to the credentials object for the in-memory
+  // session (caller may also choose to save to storage).
+  if (payload?.sid && payload.sid !== creds.sid) {
+    creds.sid = payload.sid;
+  }
+  if (upstreamStatus < 200 || upstreamStatus >= 300) {
+    let msg: any = upstreamBody;
+    if (upstreamBody && typeof upstreamBody === "object") {
+      msg =
+        upstreamBody.exception ||
+        upstreamBody._server_messages ||
+        upstreamBody.message ||
+        upstreamBody.exc ||
+        JSON.stringify(upstreamBody);
+    }
+    throw new ERPNextApiError(
+      typeof msg === "string" ? msg : "Request failed",
+      upstreamStatus,
+      typeof upstreamBody === "string" ? upstreamBody : JSON.stringify(upstreamBody),
+    );
+  }
+  return (upstreamBody ?? {}) as T;
 }
 
 async function request<T>(
@@ -74,18 +158,17 @@ async function request<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
-  const baseUrl = normalizeBaseUrl(creds.baseUrl);
-  const url = `${baseUrl}${path}`;
+  // Password mode goes through the backend proxy. This bypasses browser
+  // Set-Cookie / forbidden-header / CORS restrictions and also gives us
+  // server-side session refresh on 401.
+  if (creds.authMode === "password") {
+    return proxyRequest<T>(creds, path, init);
+  }
+
   let res: Response;
   try {
-    res = await fetch(url, {
-      ...init,
-      headers: {
-        ...buildHeaders(creds),
-        ...(init.headers || {}),
-      },
-    });
-  } catch (e: any) {
+    res = await rawFetch(creds, path, init);
+  } catch {
     throw new ERPNextApiError(
       "Could not reach your ERPNext server. Please check the URL and your internet connection.",
       0,
@@ -132,6 +215,67 @@ function encodeFields(fields: string[]): string {
 }
 
 export const ERPNext = {
+  // Establish a Frappe session by calling /api/method/login. Captures the
+  // `sid` from Set-Cookie (works on native). On web, browsers hide Set-Cookie
+  // from JS but the cookie is still stored in the browser jar; subsequent
+  // fetches with credentials: 'include' will carry it automatically — IF the
+  // ERPNext deployment has CORS configured with Allow-Credentials: true and
+  // a specific Allow-Origin. Most ERPNext sites do not, so password login on
+  // the web preview may fail with CORS even when native works perfectly.
+  async loginWithPassword(
+    creds: ERPNextCredentials,
+  ): Promise<{ sid: string | null; user: string }> {
+    const body = `usr=${encodeURIComponent(creds.usr || "")}&pwd=${encodeURIComponent(creds.pwd || "")}`;
+    let res: Response;
+    try {
+      res = await rawFetch(creds, "/api/method/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body,
+      });
+    } catch {
+      throw new ERPNextApiError(
+        "Could not reach your ERPNext server. Please check the URL.",
+        0,
+      );
+    }
+    const text = await res.text();
+    if (!res.ok) {
+      let msg = text;
+      try {
+        const j = JSON.parse(text);
+        msg = j?.message || j?.exception || j?.exc || text;
+      } catch {
+        // keep text
+      }
+      throw new ERPNextApiError(
+        typeof msg === "string" ? msg : "Login failed",
+        res.status,
+        text,
+      );
+    }
+    // Try to capture sid from Set-Cookie (native exposes this; browsers don't)
+    const setCookie =
+      res.headers.get("set-cookie") || res.headers.get("Set-Cookie") || "";
+    let sid: string | null = null;
+    const m = /(?:^|[,\s;])sid=([^;,\s]+)/.exec(setCookie);
+    if (m) sid = m[1];
+
+    let body2: any = {};
+    try {
+      body2 = JSON.parse(text);
+    } catch {
+      // ignore
+    }
+    const user =
+      body2?.full_name || body2?.message || creds.usr || "";
+    // Note: if sid is null on native, that's a real problem. On web it's
+    // expected — we rely on the browser cookie jar.
+    return { sid, user };
+  },
+
   // Validate credentials by fetching the user record.
   // ERPNext returns `{ message: "user@example.com" }` for this endpoint.
   // IMPORTANT: Frappe silently falls back to the "Guest" user (HTTP 200) when
