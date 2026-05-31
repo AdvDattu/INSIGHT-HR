@@ -1,0 +1,26 @@
+{
+  "summary": "Frontend-only testing for the ESS HR app login flow against the Expo web preview at https://hr-self-service-3.preview.emergentagent.com. All 6 requested test scenarios PASSED: (1) Login screen renders the three input fields + Sign In button, (2) empty submit shows 'All fields are required' inside the login-error testID, (3) submitting against https://invalid-erpnext-test-xyz.example.com surfaces a user-friendly 'Network error: Failed to fetch' message and keeps the user on /login, (4) navigating to the root path '/' redirects unauthenticated users to /login (auth gating confirmed in both app/index.tsx and app/(tabs)/_layout.tsx), (5) all required testIDs are present (erpnext-url-input, api-key-input, api-secret-input, login-submit-button, login-error), (6) no application-level console errors during navigation between /login and / — only a single expected net::ERR_NAME_NOT_RESOLVED for the intentionally bogus ERPNext host. No backend testing was performed because the app talks directly to ERPNext from the frontend and no real ERPNext instance was provided. No deprecated Expo packages (expo-av/expo-barcode-scanner/expo-background-fetch) were detected in the touched files.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "erpnext.ts validateCredentials() has dead logic: when message is a string it first throws 'Unable to determine logged-in user' because the outer 'if (!user || typeof user !== string)' check executes the throw before reaching the string fallback. Reorder so the string case is handled before the throw, otherwise a successful login against a real ERPNext where /api/method/frappe.auth.get_logged_user returns { message: 'user@x.com' } will fail. Reference: /app/frontend/src/services/erpnext.ts:100-108.",
+    "Login error 'Network error: Failed to fetch' is technically accurate but a bit raw for end users — consider mapping fetch failures to a friendlier copy like 'Could not reach this ERPNext instance. Check the URL and your network.' Reference: /app/frontend/src/services/erpnext.ts:46-51.",
+    "buildHeaders() in erpnext.ts sets a custom 'X-Frappe-Site-Name' header which will trigger an extra CORS preflight against ERPNext — most Frappe sites won't allow it and many login attempts may fail on CORS before they ever 401. Reference: /app/frontend/src/services/erpnext.ts:26."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (no custom backend)", "frontend": "100% (6/6 requested scenarios)"},
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "App is frontend-only direct-to-ERPNext (no FastAPI). Login route is /login, protected area is /(tabs). All testIDs from the request work as expected. For deeper end-to-end testing (Dashboard check-in, Leave Apply, Payslip detail, Profile/logout) a real ERPNext instance + API key/secret is required from the user. Note potential CORS issue from X-Frappe-Site-Name header that may block real ERPNext logins from a browser environment."
+}
