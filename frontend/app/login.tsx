@@ -60,12 +60,24 @@ export default function LoginScreen() {
       toast.show(`Welcome back, ${employee.employee_name}`, "success");
       router.replace("/(tabs)");
     } catch (e: any) {
-      const msg =
-        e instanceof ERPNextApiError
-          ? e.status === 401 || e.status === 403
-            ? "Invalid API Key or Secret. Please verify and try again."
-            : e.message
-          : e?.message || "Something went wrong. Please try again.";
+      let msg: string;
+      if (e instanceof ERPNextApiError) {
+        if (e.status === 401 || e.status === 403) {
+          // Show the underlying ERPNext message so the user can actually
+          // debug — generic "invalid key" hides the real cause.
+          const detail =
+            e.message && e.message !== "Request failed"
+              ? `\n\nServer said: ${e.message.slice(0, 240)}`
+              : "";
+          msg = `Authentication rejected by ERPNext (HTTP ${e.status}).${detail}\n\nCheck the API Key & Secret in your ERPNext User → API Access page (re-generate keys if unsure).`;
+        } else if (e.status === 404) {
+          msg = `Endpoint not found at ${baseUrl.trim()}. Make sure the URL points to your ERPNext root (e.g. https://erp.yourcompany.com) and does not include any path.`;
+        } else {
+          msg = e.message || `Request failed (HTTP ${e.status})`;
+        }
+      } else {
+        msg = e?.message || "Something went wrong. Please try again.";
+      }
       setError(msg);
     } finally {
       setLoading(false);
