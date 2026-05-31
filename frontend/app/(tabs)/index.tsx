@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -96,6 +97,20 @@ export default function DashboardScreen() {
     } finally {
       setSubmitting(null);
     }
+  };
+
+  const confirmCheck = (type: "IN" | "OUT") => {
+    Alert.alert(
+      `Confirm Check-${type === "IN" ? "In" : "Out"}`,
+      `Are you sure you want to check ${type === "IN" ? "in" : "out"} now?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: `Yes, Check ${type === "IN" ? "In" : "Out"}`, 
+          onPress: () => onCheck(type) 
+        },
+      ]
+    );
   };
 
   const onRefresh = async () => {
@@ -194,7 +209,7 @@ export default function DashboardScreen() {
             <TouchableOpacity
               testID="check-in-button"
               activeOpacity={0.85}
-              onPress={() => onCheck("IN")}
+              onPress={() => confirmCheck("IN")}
               disabled={submitting !== null || isCheckedIn}
               style={[
                 styles.actionBtn,
@@ -229,7 +244,7 @@ export default function DashboardScreen() {
             <TouchableOpacity
               testID="check-out-button"
               activeOpacity={0.85}
-              onPress={() => onCheck("OUT")}
+              onPress={() => confirmCheck("OUT")}
               disabled={submitting !== null || !isCheckedIn}
               style={[
                 styles.actionBtn,
