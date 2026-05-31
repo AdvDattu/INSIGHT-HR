@@ -19,11 +19,13 @@ function normalizeBaseUrl(url: string): string {
 }
 
 function buildHeaders(creds: ERPNextCredentials): Record<string, string> {
+  // Note: we deliberately avoid custom X-* headers here. Adding non-standard
+  // headers (like X-Frappe-Site-Name) triggers a CORS preflight that many
+  // ERPNext deployments don't whitelist, blocking the request entirely.
   return {
     Authorization: `token ${creds.apiKey}:${creds.apiSecret}`,
     "Content-Type": "application/json",
     Accept: "application/json",
-    "X-Frappe-Site-Name": new URL(normalizeBaseUrl(creds.baseUrl)).host,
   };
 }
 
@@ -45,7 +47,7 @@ async function request<T>(
     });
   } catch (e: any) {
     throw new ERPNextApiError(
-      `Network error: ${e?.message || "Unable to reach ERPNext"}`,
+      "Could not reach your ERPNext server. Please check the URL and your internet connection.",
       0,
     );
   }
@@ -90,22 +92,28 @@ function encodeFields(fields: string[]): string {
 }
 
 export const ERPNext = {
-  // Validate credentials by fetching the user record
+  // Validate credentials by fetching the user record.
+  // ERPNext returns `{ message: "user@example.com" }` for this endpoint.
   async validateCredentials(creds: ERPNextCredentials): Promise<string> {
-    const data = await request<{ message: { email?: string; full_name?: string } }>(
+    const data = await request<{ message: unknown }>(
       creds,
       "/api/method/frappe.auth.get_logged_user",
     );
-    // returns the email/user_id of the api-key holder
-    const user = (data as any)?.message;
-    if (!user || typeof user !== "string") {
-      // Some versions return { message: "user@example.com" }
-      if (typeof (data as any)?.message === "string") {
-        return (data as any).message;
-      }
-      throw new ERPNextApiError("Unable to determine logged-in user", 401);
+    const message = (data as any)?.message;
+    if (typeof message === "string" && message.length > 0) {
+      return message;
     }
-    return user;
+    // Some forks/versions may return an object with an email field
+    if (message && typeof message === "object") {
+      const candidate =
+        (message as any).email ||
+        (message as any).user_id ||
+        (message as any).name;
+      if (typeof candidate === "string" && candidate.length > 0) {
+        return candidate;
+      }
+    }
+    throw new ERPNextApiError("Unable to determine logged-in user", 401);
   },
 
   // Fetch the active employee record using user_id (email)
