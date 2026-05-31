@@ -2,7 +2,6 @@ name: Build Emergent Mobile App (APK)
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  # Limit Node.js to 4GB of RAM so it doesn't crash the server
   NODE_OPTIONS: "--max-old-space-size=4096"
 
 on:
@@ -11,6 +10,12 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    
+    # This tells GitHub to run all scripts inside the frontend folder!
+    defaults:
+      run:
+        working-directory: ./frontend
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -34,7 +39,6 @@ jobs:
           npx expo prebuild --platform android --clean
 
       - name: Restrict Gradle Memory Usage
-        # This prevents the exit code 254 memory crash by capping RAM and disabling parallel builds
         run: |
           echo "org.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=512m" >> android/gradle.properties
           echo "org.gradle.daemon=false" >> android/gradle.properties
@@ -50,4 +54,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: INSIGHT-HR-App
-          path: android/app/build/outputs/apk/release/app-release.apk
+          # Notice we added 'frontend/' to the start of this path
+          path: frontend/android/app/build/outputs/apk/release/app-release.apk
